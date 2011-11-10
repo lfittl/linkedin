@@ -3,7 +3,7 @@ module LinkedIn
   module Search
 
     def search(options={})
-      path = "/people-search"
+      path = "/people-search:(people:(id,first-name,last-name,api-standard-profile-request))"
       options = { :keywords => options } if options.is_a?(String)
       
       if fields = options.delete(:fields)

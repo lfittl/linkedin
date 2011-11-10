@@ -34,7 +34,7 @@ module LinkedIn
             path +=":(#{fields.map{ |f| f.to_s.gsub("_","-") }.join(',')})"
           end
 
-          Mash.from_json(get(path))
+          Mash.from_json(get(path, options[:headers] || {}))
         end
 
         def person_path(options)
