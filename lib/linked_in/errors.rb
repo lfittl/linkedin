@@ -8,9 +8,9 @@ module LinkedIn
       end
     end
 
-    class RateLimitExceededError < LinkedInError; end
     class UnauthorizedError      < LinkedInError; end
     class GeneralError           < LinkedInError; end
+    class AccessDeniedError      < LinkedInError; end
 
     class UnavailableError       < StandardError; end
     class InformLinkedInError    < StandardError; end

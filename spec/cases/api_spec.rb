@@ -30,6 +30,16 @@ describe LinkedIn::Api do
     client.network_updates.should be_an_instance_of(LinkedIn::Mash)
   end
 
+  it "should be able to view network_update's comments" do
+    stub_request(:get, "https://api.linkedin.com/v1/people/~/network/updates/key=network_update_key/update-comments").to_return(:body => "{}")
+    client.share_comments("network_update_key").should be_an_instance_of(LinkedIn::Mash)
+  end
+
+  it "should be able to view network_update's likes" do
+    stub_request(:get, "https://api.linkedin.com/v1/people/~/network/updates/key=network_update_key/likes").to_return(:body => "{}")
+    client.share_likes("network_update_key").should be_an_instance_of(LinkedIn::Mash)
+  end
+
   it "should be able to search with a keyword if given a String" do
     stub_request(:get, "https://api.linkedin.com/v1/people-search?keywords=business").to_return(:body => "{}")
     client.search("business").should be_an_instance_of(LinkedIn::Mash)
@@ -41,7 +51,8 @@ describe LinkedIn::Api do
   end
 
   it "should be able to search with an option and fetch specific fields" do
-    stub_request(:get, "https://api.linkedin.com/v1/people-search:(num-results,total)?first-name=Javan").to_return(:body => "{}")
+    stub_request(:get, "https://api.linkedin.com/v1/people-search:(num-results,total)?first-name=Javan").to_return(
+        :body => "{}")
     client.search(:first_name => "Javan", :fields => ["num_results", "total"]).should be_an_instance_of(LinkedIn::Mash)
   end
 
@@ -52,12 +63,64 @@ describe LinkedIn::Api do
     response.code.should == "201"
   end
 
+  it "should be able to comment on network update" do
+    stub_request(:post, "https://api.linkedin.com/v1/people/~/network/updates/key=SOMEKEY/update-comments").to_return(
+        :body => "", :status => 201)
+    response = client.update_comment('SOMEKEY', "Testing, 1, 2, 3")
+    response.body.should == ""
+    response.code.should == "201"
+  end
+
+  it "should be able to send a message" do
+    stub_request(:post, "https://api.linkedin.com/v1/people/~/mailbox").to_return(:body => "", :status => 201)
+    response = client.send_message("subject", "body", ["recip1", "recip2"])
+    response.body.should == ""
+    response.code.should == "201"
+  end
+
+  it "should be able to like a network update" do
+    stub_request(:put, "https://api.linkedin.com/v1/people/~/network/updates/key=SOMEKEY/is-liked").
+      with(:body => "true").to_return(:body => "", :status => 201)
+    response = client.like_share('SOMEKEY')
+    response.body.should == nil
+    response.code.should == "201"
+  end
+
+  it "should be able to unlike a network update" do
+    stub_request(:put, "https://api.linkedin.com/v1/people/~/network/updates/key=SOMEKEY/is-liked").
+      with(:body => "false").to_return(:body => "", :status => 201)
+    response = client.unlike_share('SOMEKEY')
+    response.body.should == nil
+    response.code.should == "201"
+  end
+
+  it "should be able to pass down the additional arguments to OAuth's get_request_token" do
+    consumer.should_receive(:get_request_token).with(
+      {:oauth_callback => "http://localhost:3000/auth/callback"},  :scope => "rw_nus").and_return("request_token")
+
+    request_token = client.request_token(
+      {:oauth_callback => "http://localhost:3000/auth/callback"},  :scope => "rw_nus"
+    )
+
+    request_token.should == "request_token"
+  end
+
   context "Company API" do
     use_vcr_cassette
 
     it "should be able to view a company profile" do
       stub_request(:get, "https://api.linkedin.com/v1/companies/id=1586").to_return(:body => "{}")
       client.company(:id => 1586).should be_an_instance_of(LinkedIn::Mash)
+    end
+
+    it "should be able to view a company by universal name" do
+      stub_request(:get, "https://api.linkedin.com/v1/companies/universal-name=acme").to_return(:body => "{}")
+      client.company(:name => 'acme').should be_an_instance_of(LinkedIn::Mash)
+    end
+
+    it "should be able to view a company by e-mail domain" do
+      stub_request(:get, "https://api.linkedin.com/v1/companies/email-domain=acme.com").to_return(:body => "{}")
+      client.company(:domain => 'acme.com').should be_an_instance_of(LinkedIn::Mash)
     end
 
     it "should load correct company data" do
@@ -73,4 +136,27 @@ describe LinkedIn::Api do
     end
   end
 
+  context "Group API" do
+
+    it "should be able to list group memberships for a profile" do
+      stub_request(:get, "https://api.linkedin.com/v1/people/~/group-memberships").to_return(:body => "{}")
+      client.group_memberships.should be_an_instance_of(LinkedIn::Mash)
+    end
+
+    it "should be able to join a group" do
+      stub_request(:put, "https://api.linkedin.com/v1/people/~/group-memberships/123").to_return(:body => "", :status => 201)
+
+      response = client.join_group(123)
+      response.body.should == ""
+      response.code.should == "201"
+    end
+
+  end
+
+  context "Errors" do
+    it "should raise AccessDeniedError when LinkedIn returns 403 status code" do
+      stub_request(:get, "https://api.linkedin.com/v1/people-search?first-name=Javan").to_return(:body => "{}", :status => 403)
+      expect{ client.search(:first_name => "Javan") }.to raise_error(LinkedIn::Errors::AccessDeniedError)
+    end
+  end
 end
